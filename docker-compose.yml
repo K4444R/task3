@@ -1,0 +1,123 @@
+services:
+  eureka-server:
+    build:
+      context: "./Eureka Server"
+      dockerfile: Dockerfile
+    ports:
+      - "8761:8761"
+    networks:
+      - f1-network
+    healthcheck:
+      test: ["CMD", "curl -f http://localhost:8761/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  postgres:
+    image: postgres:14
+    container_name: f1-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: task-sample
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - f1-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  driver-service:
+    build:
+      context: ./driver-service
+      dockerfile: Dockerfile
+    ports:
+      - "8091:8091"
+    networks:
+      - f1-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/task-sample
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_CLOUD_EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_CLOUD_EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - SPRING_CLOUD_EUREKA_CLIENT_FETCH_REGISTRY=true
+      - EUREKA_INSTANCE_PREFER_IP=true
+
+  team-service:
+    build:
+      context: ./team-service
+      dockerfile: Dockerfile
+    ports:
+      - "8092:8092"
+    networks:
+      - f1-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/task-sample
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_CLOUD_EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_CLOUD_EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - SPRING_CLOUD_EUREKA_CLIENT_FETCH_REGISTRY=true
+      - EUREKA_INSTANCE_PREFER_IP=true
+
+  race-service:
+    build:
+      context: ./race-service
+      dockerfile: Dockerfile
+    ports:
+      - "8093:8093"
+    networks:
+      - f1-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/task-sample
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_CLOUD_EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_CLOUD_EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - SPRING_CLOUD_EUREKA_CLIENT_FETCH_REGISTRY=true
+      - EUREKA_INSTANCE_PREFER_IP=true
+
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    networks:
+      - f1-network
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+    environment:
+      - SPRING_CLOUD_EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka
+      - SPRING_CLOUD_EUREKA_CLIENT_REGISTER_WITH_EUREKA=true
+      - SPRING_CLOUD_EUREKA_CLIENT_FETCH_REGISTRY=true
+      - EUREKA_INSTANCE_PREFER_IP=true
+
+volumes:
+  postgres-data:
+
+networks:
+  f1-network:
+    driver: bridge
